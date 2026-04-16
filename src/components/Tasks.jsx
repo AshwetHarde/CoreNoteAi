@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle, Edit, Trash2, Calendar, ClipboardList, Plus, X, AlertCircle, Tag, ChevronDown, ChevronUp, PlusCircle } from 'lucide-react'
+import { CheckCircle, Edit, Trash2, Calendar, ClipboardList, Plus, X, AlertCircle, Tag, PlusCircle } from 'lucide-react'
 
 function Tasks({
   tasks,
@@ -34,7 +34,6 @@ function Tasks({
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingTaskData, setEditingTaskData] = useState(null)
-  const [expandedTasks, setExpandedTasks] = useState(new Set())
   const [showSubtaskInput, setShowSubtaskInput] = useState(null)
   const [newSubtaskText, setNewSubtaskText] = useState('')
 
@@ -87,18 +86,6 @@ function Tasks({
     }
   }
 
-  const toggleTaskExpand = (taskId) => {
-    setExpandedTasks(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(taskId)) {
-        newSet.delete(taskId)
-      } else {
-        newSet.add(taskId)
-      }
-      return newSet
-    })
-  }
-
   const handleAddSubtask = (taskId) => {
     if (newSubtaskText.trim()) {
       addSubtask(taskId, newSubtaskText.trim())
@@ -130,6 +117,14 @@ function Tasks({
   const today = new Date().toISOString().split('T')[0]
   const tomorrow = getTomorrowDate()
 
+  // Function to get date category for sorting
+  const getDateCategory = (date) => {
+    if (!date) return 3 // No date - last
+    if (date === today) return 0 // Today - first
+    if (date === tomorrow) return 1 // Tomorrow - second
+    return 2 // Other dates - third
+  }
+
   const filteredTasks = activeTab === 'today'
     ? tasks.filter(task => {
         const taskDate = new Date(task.date)
@@ -151,18 +146,25 @@ function Tasks({
       return a.completed ? 1 : -1
     }
     
-    // Sort by date first (descending - newest first)
+    // Sort by date category (today first, then tomorrow, then other dates)
+    const categoryA = getDateCategory(a.date)
+    const categoryB = getDateCategory(b.date)
+    if (categoryA !== categoryB) {
+      return categoryA - categoryB
+    }
+    
+    // If same category, sort by date
     if (!a.date) return 1
     if (!b.date) return -1
     const dateA = new Date(a.date)
     const dateB = new Date(b.date)
     if (dateA.getTime() !== dateB.getTime()) {
-      return dateB.getTime() - dateA.getTime()
+      return dateA.getTime() - dateB.getTime()
     }
-    // If same date, sort by time (descending - latest time first)
+    // If same date, sort by time (ascending)
     const timeA = a.time || '00:00'
     const timeB = b.time || '00:00'
-    return timeB.localeCompare(timeA)
+    return timeA.localeCompare(timeB)
   })
 
   return (
@@ -374,15 +376,6 @@ function Tasks({
                       )}
                     </div>
                     <div className="flex gap-1 sm:gap-2 flex-shrink-0">
-                      {(task.subtasks && task.subtasks.length > 0 || task.notes) && (
-                        <button
-                          onClick={() => toggleTaskExpand(task.id)}
-                          className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all text-gray-400 hover:text-white hover:bg-white/10"
-                          title="Show details"
-                        >
-                          {expandedTasks.has(task.id) ? <ChevronUp size={14} className="sm:w-4 sm:h-4" /> : <ChevronDown size={14} className="sm:w-4 sm:h-4" />}
-                        </button>
-                      )}
                       <button
                         onClick={() => handleEditModal(task)}
                         className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl transition-all text-gray-400 hover:text-white hover:bg-white/10"
@@ -399,72 +392,6 @@ function Tasks({
                       </button>
                     </div>
                   </div>
-                  
-                  {/* Subtasks Section */}
-                  {expandedTasks.has(task.id) && task.subtasks && task.subtasks.length > 0 && (
-                    <div className="ml-8 sm:ml-10 mt-2 space-y-2">
-                      {task.subtasks.map((subtask) => (
-                        <div key={subtask.id} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
-                          <button
-                            onClick={() => toggleSubtask(task.id, subtask.id)}
-                            className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                              subtask.completed
-                                ? 'bg-green-500/20 border-green-500 text-green-500'
-                                : 'border-white/20 hover:border-white/40'
-                            }`}
-                          >
-                            {subtask.completed && <CheckCircle size={8} />}
-                          </button>
-                          <p className={`text-xs sm:text-sm flex-1 ${subtask.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}>
-                            {subtask.text}
-                          </p>
-                          <button
-                            onClick={() => deleteSubtask(task.id, subtask.id)}
-                            className="p-1 rounded transition-all text-gray-500 hover:text-red-400 hover:bg-white/10"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))}
-                      {showSubtaskInput === task.id ? (
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={newSubtaskText}
-                            onChange={(e) => setNewSubtaskText(e.target.value)}
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleAddSubtask(task.id)
-                              }
-                            }}
-                            placeholder="Add subtask..."
-                            className="flex-1 px-2 py-1 rounded-lg border border-white/20 bg-transparent text-white text-xs focus:ring-2 focus:ring-white/30 focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => handleAddSubtask(task.id)}
-                            className="px-2 py-1 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all text-xs"
-                          >
-                            Add
-                          </button>
-                          <button
-                            onClick={() => { setShowSubtaskInput(null); setNewSubtaskText('') }}
-                            className="px-2 py-1 bg-white/5 border border-white/10 text-gray-400 rounded-lg hover:bg-white/10 transition-all text-xs"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setShowSubtaskInput(task.id)}
-                          className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-all mt-2"
-                        >
-                          <PlusCircle size={12} />
-                          Add subtask
-                        </button>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>
