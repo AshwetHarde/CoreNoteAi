@@ -77,7 +77,7 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
         }
 
         if (finalTranscript.trim() && onFinalTranscript) {
-          if (bestConfidence > 0 && bestConfidence < 0.7) {
+          if (bestConfidence > 0 && bestConfidence < 0.3) {
             return
           }
           
@@ -269,7 +269,7 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
         }
 
         if (finalTranscript.trim() && onFinalTranscript) {
-          if (bestConfidence > 0 && bestConfidence < 0.7) {
+          if (bestConfidence > 0 && bestConfidence < 0.3) {
             return
           }
           

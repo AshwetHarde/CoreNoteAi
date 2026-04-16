@@ -19,6 +19,7 @@ function App() {
   const silenceTimerRef = useRef(null)
   const micStreamRef = useRef(null)
   const audioContextRef = useRef(null)
+  const isAndroidRef = useRef(/Android/i.test(navigator.userAgent || ''))
 
   // Custom hooks
   const {
@@ -214,7 +215,6 @@ function App() {
           return
         }
 
-        // Keep a persistent stream for the whole voice session (prevents repeated mic activation sounds)
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -223,24 +223,30 @@ function App() {
           }
         })
 
-        // Store for cleanup on session end
-        micStreamRef.current = stream
+        // Android Chrome can fail to capture audio in SpeechRecognition if another getUserMedia
+        // stream is held open. Request permission once, then immediately release the stream.
+        if (isAndroidRef.current) {
+          stream.getTracks().forEach(t => t.stop())
+        } else {
+          // Keep a persistent stream for the whole voice session (prevents repeated mic activation sounds)
+          micStreamRef.current = stream
 
-        // Initialize an AudioContext so the stream stays active and we can add VAD later if needed
-        if (!audioContextRef.current) {
-          try {
-            const AudioContext = window.AudioContext || window.webkitAudioContext
-            audioContextRef.current = new AudioContext()
-          } catch (e) {
-            // If AudioContext fails, we still keep the stream for persistence.
+          // Initialize an AudioContext so the stream stays active and we can add VAD later if needed
+          if (!audioContextRef.current) {
+            try {
+              const AudioContext = window.AudioContext || window.webkitAudioContext
+              audioContextRef.current = new AudioContext()
+            } catch (e) {
+              // If AudioContext fails, we still keep the stream for persistence.
+            }
           }
-        }
 
-        // iOS/Android may require this after a user gesture
-        if (audioContextRef.current?.state === 'suspended') {
-          try {
-            await audioContextRef.current.resume()
-          } catch (e) {
+          // iOS/Android may require this after a user gesture
+          if (audioContextRef.current?.state === 'suspended') {
+            try {
+              await audioContextRef.current.resume()
+            } catch (e) {
+            }
           }
         }
       } catch (permError) {
