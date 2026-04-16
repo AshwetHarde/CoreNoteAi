@@ -12,6 +12,7 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
   const lastTranscriptRef = useRef('')
   const lastStartAtRef = useRef(0)
   const restartAttemptRef = useRef(0)
+  const isAndroidRef = useRef(/Android/i.test(navigator.userAgent || ''))
 
   const startListening = () => {
     if (isStartingRef.current) {
@@ -35,7 +36,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
     if (!recognitionRef.current && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = true
+      // Android Chrome can become unstable with continuous mode (rapid end/restart loops).
+      // Using non-continuous + controlled restart is more reliable.
+      recognitionRef.current.continuous = !isAndroidRef.current
       recognitionRef.current.interimResults = true
       recognitionRef.current.lang = 'en-US'
       recognitionRef.current.maxAlternatives = 3
@@ -85,6 +88,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
             return
           }
           lastTranscriptRef.current = cleanedTranscript
+
+          // We got a valid final result; reset restart backoff.
+          restartAttemptRef.current = 0
           
           onFinalTranscript(cleanedTranscript, bestConfidence)
         }
@@ -222,7 +228,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       recognitionRef.current = new SpeechRecognition()
-      recognitionRef.current.continuous = true
+      // Android Chrome can become unstable with continuous mode (rapid end/restart loops).
+      // Using non-continuous + controlled restart is more reliable.
+      recognitionRef.current.continuous = !isAndroidRef.current
       recognitionRef.current.interimResults = true
       recognitionRef.current.lang = 'en-US'
       recognitionRef.current.maxAlternatives = 3
@@ -272,6 +280,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
             return
           }
           lastTranscriptRef.current = cleanedTranscript
+
+          // We got a valid final result; reset restart backoff.
+          restartAttemptRef.current = 0
           
           onFinalTranscript(cleanedTranscript, bestConfidence)
         }

@@ -198,14 +198,36 @@ function App() {
     try {
       // Request microphone permission before starting
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true })
+        if (!window.isSecureContext) {
+          alert('Microphone requires HTTPS. Please open the site using https://')
+          return
+        }
+
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+          alert('Speech recognition is not supported on this device/browser. Try Chrome on Android, or use text input.')
+          return
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        })
+
+        // Important: immediately stop tracks so the mic is not held by getUserMedia,
+        // otherwise SpeechRecognition can fail to actually capture audio on some Android devices.
+        stream.getTracks().forEach(t => t.stop())
       } catch (permError) {
         alert('Microphone permission denied. Please allow microphone access in your browser settings to use voice features.')
         return
       }
       
       setIsSessionActive(true)
-      startListening()
+      setTimeout(() => {
+        startListening()
+      }, 250)
     } catch (error) {
       alert('Failed to start voice conversation: ' + error.message)
       setIsSessionActive(false)
