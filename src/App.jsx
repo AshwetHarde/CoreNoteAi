@@ -12,7 +12,7 @@ function App() {
   const [input, setInput] = useState('')
   const [autoSpeak, setAutoSpeak] = useState(true)
   const [isSpeaking, setIsSpeaking] = useState(false)
-  const [activeTab, setActiveTab] = useState('manual')
+  const [activeTab, setActiveTab] = useState('automate')
   const [isSessionActive, setIsSessionActive] = useState(false)
   const messagesEndRef = useRef(null)
   const handleSendRef = useRef(null)
