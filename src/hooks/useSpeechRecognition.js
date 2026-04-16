@@ -47,6 +47,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
         if (!isSessionActiveRef.current) {
           return
         }
+        if (isSpeakingRef.current) {
+          return
+        }
         let interimTranscript = ''
         let finalTranscript = ''
         let bestConfidence = 0

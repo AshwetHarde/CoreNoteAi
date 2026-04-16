@@ -17,6 +17,8 @@ function App() {
   const messagesEndRef = useRef(null)
   const handleSendRef = useRef(null)
   const silenceTimerRef = useRef(null)
+  const micStreamRef = useRef(null)
+  const audioContextRef = useRef(null)
 
   // Custom hooks
   const {
@@ -165,7 +167,6 @@ function App() {
     onSpeakingStart: () => {
       setIsSpeaking(true)
       setRecognitionSpeaking(true)
-      stopListening()
     },
     onSpeakingEnd: () => {
       setIsSpeaking(false)
@@ -208,6 +209,12 @@ function App() {
           return
         }
 
+        if (!navigator.mediaDevices?.getUserMedia) {
+          alert('Microphone is not supported on this device/browser. Try Chrome on Android, or use text input.')
+          return
+        }
+
+        // Keep a persistent stream for the whole voice session (prevents repeated mic activation sounds)
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             echoCancellation: true,
@@ -216,9 +223,26 @@ function App() {
           }
         })
 
-        // Important: immediately stop tracks so the mic is not held by getUserMedia,
-        // otherwise SpeechRecognition can fail to actually capture audio on some Android devices.
-        stream.getTracks().forEach(t => t.stop())
+        // Store for cleanup on session end
+        micStreamRef.current = stream
+
+        // Initialize an AudioContext so the stream stays active and we can add VAD later if needed
+        if (!audioContextRef.current) {
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext
+            audioContextRef.current = new AudioContext()
+          } catch (e) {
+            // If AudioContext fails, we still keep the stream for persistence.
+          }
+        }
+
+        // iOS/Android may require this after a user gesture
+        if (audioContextRef.current?.state === 'suspended') {
+          try {
+            await audioContextRef.current.resume()
+          } catch (e) {
+          }
+        }
       } catch (permError) {
         alert('Microphone permission denied. Please allow microphone access in your browser settings to use voice features.')
         return
@@ -239,6 +263,22 @@ function App() {
     setIsSpeaking(false)
     stopListening()
     stopSpeaking()
+
+    if (micStreamRef.current) {
+      try {
+        micStreamRef.current.getTracks().forEach(t => t.stop())
+      } catch (e) {
+      }
+      micStreamRef.current = null
+    }
+
+    if (audioContextRef.current) {
+      try {
+        audioContextRef.current.close()
+      } catch (e) {
+      }
+      audioContextRef.current = null
+    }
   }
 
   const handleSend = async (directMessage = null, isVoiceInput = false) => {
@@ -251,7 +291,11 @@ function App() {
 
     setInput('')
     setMessages(prev => [...prev, { role: 'user', text: messageToSend }])
-    stopListening()
+    // During a voice session keep the mic/recognition active to avoid toggling sounds.
+    // Speech recognition will ignore results while TTS is speaking.
+    if (!isSessionActive) {
+      stopListening()
+    }
 
     const aiResponse = await processCommand(messageToSend)
     setMessages(prev => [...prev, { role: 'assistant', text: aiResponse }])
