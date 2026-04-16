@@ -168,7 +168,7 @@ function Tasks({
   })
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-120px)] sm:max-h-[calc(100vh-80px)] bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl transition-colors duration-300 rounded-2xl overflow-hidden">
+    <div className="flex flex-col h-full max-h-[calc(100vh-180px)] sm:max-h-[calc(100vh-100px)] bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl transition-colors duration-300 rounded-2xl overflow-hidden">
       <div className="p-3 sm:p-4 md:p-6 lg:p-8">
         <div className="flex items-center justify-between gap-2 mb-4 sm:mb-6">
           <h2 className="text-base sm:text-lg md:text-xl lg:text-3xl font-bold text-white flex items-center gap-2 flex-shrink-0">
