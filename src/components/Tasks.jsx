@@ -146,18 +146,23 @@ function Tasks({
         )
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    // Sort by date first
+    // Sort by completion status first (completed tasks at bottom)
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1
+    }
+    
+    // Sort by date first (descending - newest first)
     if (!a.date) return 1
     if (!b.date) return -1
     const dateA = new Date(a.date)
     const dateB = new Date(b.date)
     if (dateA.getTime() !== dateB.getTime()) {
-      return dateA.getTime() - dateB.getTime()
+      return dateB.getTime() - dateA.getTime()
     }
-    // If same date, sort by time
+    // If same date, sort by time (descending - latest time first)
     const timeA = a.time || '00:00'
     const timeB = b.time || '00:00'
-    return timeA.localeCompare(timeB)
+    return timeB.localeCompare(timeA)
   })
 
   return (
@@ -280,9 +285,9 @@ function Tasks({
           <Plus size={24} className="sm:w-6 sm:h-6" />
         </button>
 
-        <div className="h-full flex flex-col items-center justify-center overflow-y-auto scrollbar-hide pb-20 sm:pb-4">
+        <div className="h-full overflow-y-auto scrollbar-hide pb-20 sm:pb-4">
           {sortedTasks.length === 0 ? (
-            <div className="text-center px-4">
+            <div className="flex flex-col items-center justify-center h-full px-4">
               <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4 text-white">
                 Tasks
               </h2>
@@ -291,7 +296,7 @@ function Tasks({
               </p>
             </div>
           ) : (
-            <div className="w-full space-y-2 sm:space-y-3 md:space-y-4">
+            <div className="space-y-2 sm:space-y-3 md:space-y-4 pt-2">
             {sortedTasks.map((task) => (
               <div
                 key={task.id}
