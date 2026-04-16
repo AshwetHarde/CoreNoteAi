@@ -280,13 +280,19 @@ function Tasks({
           <Plus size={24} className="sm:w-6 sm:h-6" />
         </button>
 
-        <div className="h-full space-y-2 sm:space-y-3 md:space-y-4 overflow-y-auto scrollbar-hide pb-20 sm:pb-4">
+        <div className="h-full flex flex-col items-center justify-center overflow-y-auto scrollbar-hide pb-20 sm:pb-4">
           {sortedTasks.length === 0 ? (
-            <p className="text-center py-6 sm:py-8 md:py-12 text-sm sm:text-base md:text-lg text-gray-500">
-              {activeTab === 'today' ? 'No current or upcoming tasks.' : searchQuery ? 'No tasks found matching your search.' : 'No tasks for this date.'}
-            </p>
+            <div className="text-center px-4">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold mb-3 sm:mb-4 text-white">
+                Tasks
+              </h2>
+              <p className="mb-1 sm:mb-2 text-sm sm:text-base text-gray-400">
+                {activeTab === 'today' ? 'No current or upcoming tasks.' : searchQuery ? 'No tasks found matching your search.' : 'No tasks for this date.'}
+              </p>
+            </div>
           ) : (
-            sortedTasks.map((task) => (
+            <div className="w-full space-y-2 sm:space-y-3 md:space-y-4">
+            {sortedTasks.map((task) => (
               <div
                 key={task.id}
                 className={`p-3 sm:p-4 md:p-5 rounded-xl sm:rounded-2xl border transition-all duration-300 bg-white/5 border-white/10 ${task.completed ? 'opacity-60' : ''}`}
@@ -457,7 +463,8 @@ function Tasks({
                 </div>
               )}
             </div>
-            ))
+            ))}
+            </div>
           )}
         </div>
       </div>
