@@ -19,13 +19,19 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
       return
     }
     
+    // Check if speech recognition is supported
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge on desktop, or Chrome on Android.')
+      return
+    }
+    
     // Clear any pending state changes
     if (stateChangeTimeoutRef.current) {
       clearTimeout(stateChangeTimeoutRef.current)
     }
     
     // Recreate recognition if it was nullified
-    if (!recognitionRef.current && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    if (!recognitionRef.current) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       recognitionRef.current = new SpeechRecognition()
       recognitionRef.current.continuous = true
@@ -102,6 +108,14 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
           alert('No microphone found. Please connect a microphone to use voice features.')
           return
         }
+        
+        // Mobile-specific error handling
+        if (event.error === 'network') {
+          alert('Network error. Please check your internet connection and try again.')
+          return
+        }
+        
+        console.error('Speech recognition error:', event.error)
       }
 
       recognitionRef.current.onend = () => {
@@ -281,6 +295,14 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
           alert('No microphone found. Please connect a microphone to use voice features.')
           return
         }
+        
+        // Mobile-specific error handling
+        if (event.error === 'network') {
+          alert('Network error. Please check your internet connection and try again.')
+          return
+        }
+        
+        console.error('Speech recognition error:', event.error)
       }
 
       recognitionRef.current.onend = () => {
