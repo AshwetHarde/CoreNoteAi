@@ -244,12 +244,12 @@ function App() {
     if (!isSessionActive) return
     if (isSpeaking) return
     const t = setTimeout(() => {
-      if (isSessionActive && !isSpeaking) {
+      if (isSessionActive && !isSpeaking && !isListening) {
         startListening()
       }
     }, 500)
     return () => clearTimeout(t)
-  }, [isSessionActive, isSpeaking, startListening])
+  }, [isSessionActive, isSpeaking, isListening, startListening])
 
   handleSendRef.current = handleSend
 
@@ -261,8 +261,8 @@ function App() {
   }
 
   return (
-    <div className="h-screen sm:h-screen bg-gradient-to-br from-black via-gray-900 to-black transition-colors duration-300 flex flex-col overflow-hidden">
-      <div className="container mx-auto px-4 py-4 sm:px-6 sm:py-6 max-w-4xl flex-1 flex flex-col overflow-hidden">
+    <div className="h-[100svh] min-h-[100svh] bg-gradient-to-br from-black via-gray-900 to-black transition-colors duration-300 flex flex-col overflow-hidden">
+      <div className="container mx-auto px-3 py-3 sm:px-6 sm:py-6 max-w-4xl flex-1 flex flex-col overflow-hidden">
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}

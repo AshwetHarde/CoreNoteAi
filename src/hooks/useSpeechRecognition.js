@@ -10,6 +10,8 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
   const restartTimeoutRef = useRef(null)
   const stateChangeTimeoutRef = useRef(null)
   const lastTranscriptRef = useRef('')
+  const lastStartAtRef = useRef(0)
+  const restartAttemptRef = useRef(0)
 
   const startListening = () => {
     if (isStartingRef.current) {
@@ -18,16 +20,9 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
     if (isListening) {
       return
     }
-    
-    // Check if speech recognition is supported
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome or Edge on desktop, or Chrome on Android.')
-      return
-    }
-    
-    // Check if HTTPS is required (mobile browsers require HTTPS for microphone)
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      alert('Microphone access requires HTTPS. Please use a secure connection (https://) for voice features to work.')
+
+    const now = Date.now()
+    if (now - lastStartAtRef.current < 1200) {
       return
     }
     
@@ -37,27 +32,15 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
     }
     
     // Recreate recognition if it was nullified
-    if (!recognitionRef.current) {
+    if (!recognitionRef.current && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
       recognitionRef.current = new SpeechRecognition()
       recognitionRef.current.continuous = true
       recognitionRef.current.interimResults = true
       recognitionRef.current.lang = 'en-US'
       recognitionRef.current.maxAlternatives = 3
-      
-      // Mobile-specific configuration
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        recognitionRef.current.continuous = false // Mobile browsers work better with non-continuous
-        recognitionRef.current.maxAlternatives = 1 // Reduce alternatives for mobile
-      }
-    } else {
-      // Re-configure for mobile if needed
-      if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        recognitionRef.current.continuous = false
-      }
-    }
 
-    recognitionRef.current.onresult = (event) => {
+      recognitionRef.current.onresult = (event) => {
         if (!isSessionActiveRef.current) {
           return
         }
@@ -109,8 +92,25 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
 
       recognitionRef.current.onerror = (event) => {
         if (event?.error === 'aborted' || event?.error === 'no-speech') {
-          // Don't set isListening to false immediately for these errors
+          // Mobile Chrome often emits these during natural pauses.
+          // Avoid rapid toggling; schedule a controlled restart instead.
           isStartingRef.current = false
+          setIsListening(false)
+
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current)
+          }
+
+          const baseDelay = 1200
+          const backoff = Math.min(restartAttemptRef.current, 4) * 600
+          const delay = baseDelay + backoff
+
+          restartTimeoutRef.current = setTimeout(() => {
+            if (isSessionActiveRef.current && !isSpeakingRef.current && !isStoppingRef.current) {
+              restartAttemptRef.current += 1
+              startListening()
+            }
+          }, delay)
           return
         }
 
@@ -126,14 +126,6 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
           alert('No microphone found. Please connect a microphone to use voice features.')
           return
         }
-        
-        // Mobile-specific error handling
-        if (event.error === 'network') {
-          alert('Network error. Please check your internet connection and try again.')
-          return
-        }
-        
-        console.error('Speech recognition error:', event.error)
       }
 
       recognitionRef.current.onend = () => {
@@ -151,19 +143,18 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
             clearTimeout(restartTimeoutRef.current)
           }
           
-          // Delay restart to prevent rapid flickering
+          setIsListening(false)
+
+          const baseDelay = 1200
+          const backoff = Math.min(restartAttemptRef.current, 4) * 600
+          const delay = baseDelay + backoff
+
           restartTimeoutRef.current = setTimeout(() => {
             if (isSessionActiveRef.current && !isSpeakingRef.current && !isStoppingRef.current) {
-              try {
-                recognitionRef.current.start()
-              } catch (e) {
-                // If already started, just set state
-                if (e?.name === 'InvalidStateError') {
-                  setIsListening(true)
-                }
-              }
+              restartAttemptRef.current += 1
+              startListening()
             }
-          }, 100)
+          }, delay)
         } else {
           setIsListening(false)
         }
@@ -172,37 +163,15 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
     
     if (recognitionRef.current) {
       try {
-        isStartingRef.current = false
-        try {
-          if (recognitionRef.current) {
-            recognitionRef.current.start()
-          }
-          // Small delay to set isListening to true to prevent flickering
-          stateChangeTimeoutRef.current = setTimeout(() => {
-            setIsListening(true)
-            isStartingRef.current = false
-          }, 50)
-          
-          // Mobile-specific: Add a timeout to check if recognition actually started
-          if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            setTimeout(() => {
-              if (!isListening && isStartingRef.current) {
-                console.warn('Mobile speech recognition may not have started properly, retrying...')
-                isStartingRef.current = false
-                setIsListening(false)
-              }
-            }, 1000)
-          }
-        } catch (error) {
-          console.error('Error starting speech recognition:', error)
+        isStartingRef.current = true
+        isStoppingRef.current = false
+        recognitionRef.current.start()
+        lastStartAtRef.current = Date.now()
+        // Small delay before setting state to prevent flickering
+        stateChangeTimeoutRef.current = setTimeout(() => {
+          setIsListening(true)
           isStartingRef.current = false
-          setIsListening(false)
-          
-          // Mobile-specific error handling
-          if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            alert('Mobile speech recognition failed. Please try again or use a different browser.')
-          }
-        }
+        }, 50)
       } catch (e) {
         isStartingRef.current = false
         if (e?.name === 'InvalidStateError' || (e?.message && e.message.includes('already started'))) {
@@ -233,16 +202,7 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
         isStartingRef.current = false
         recognitionRef.current.stop()
         setIsListening(false)
-        // Mark for recreation on next start
-        setTimeout(() => {
-          if (recognitionRef.current) {
-            try {
-              recognitionRef.current = null
-            } catch (e) {
-              // Ignore
-            }
-          }
-        }, 100)
+        restartAttemptRef.current = 0
       } catch (e) {
         setIsListening(false)
         isStartingRef.current = false
@@ -319,8 +279,25 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
 
       recognitionRef.current.onerror = (event) => {
         if (event?.error === 'aborted' || event?.error === 'no-speech') {
-          // Don't set isListening to false immediately for these errors
+          // Mobile Chrome frequently fires these during pauses.
+          // Avoid rapid start/stop loops; restart with backoff.
           isStartingRef.current = false
+          setIsListening(false)
+
+          if (restartTimeoutRef.current) {
+            clearTimeout(restartTimeoutRef.current)
+          }
+
+          const baseDelay = 1200
+          const backoff = Math.min(restartAttemptRef.current, 4) * 600
+          const delay = baseDelay + backoff
+
+          restartTimeoutRef.current = setTimeout(() => {
+            if (isSessionActiveRef.current && !isSpeakingRef.current && !isStoppingRef.current) {
+              restartAttemptRef.current += 1
+              startListening()
+            }
+          }, delay)
           return
         }
 
@@ -336,14 +313,6 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
           alert('No microphone found. Please connect a microphone to use voice features.')
           return
         }
-        
-        // Mobile-specific error handling
-        if (event.error === 'network') {
-          alert('Network error. Please check your internet connection and try again.')
-          return
-        }
-        
-        console.error('Speech recognition error:', event.error)
       }
 
       recognitionRef.current.onend = () => {
@@ -360,20 +329,19 @@ export const useSpeechRecognition = ({ onFinalTranscript, onInterimTranscript })
           if (restartTimeoutRef.current) {
             clearTimeout(restartTimeoutRef.current)
           }
-          
-          // Delay restart to prevent rapid flickering
+
+          setIsListening(false)
+
+          const baseDelay = 1200
+          const backoff = Math.min(restartAttemptRef.current, 4) * 600
+          const delay = baseDelay + backoff
+
           restartTimeoutRef.current = setTimeout(() => {
             if (isSessionActiveRef.current && !isSpeakingRef.current && !isStoppingRef.current) {
-              try {
-                recognitionRef.current.start()
-              } catch (e) {
-                // If already started, just set state
-                if (e?.name === 'InvalidStateError') {
-                  setIsListening(true)
-                }
-              }
+              restartAttemptRef.current += 1
+              startListening()
             }
-          }, 100)
+          }, delay)
         } else {
           setIsListening(false)
         }

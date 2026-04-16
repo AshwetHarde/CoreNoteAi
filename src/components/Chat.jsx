@@ -111,7 +111,7 @@ export default function Chat({
   }
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-180px)] sm:max-h-[calc(100vh-100px)] bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl transition-colors duration-300 rounded-2xl">
+    <div className="flex flex-col h-full bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl transition-colors duration-300 rounded-2xl">
       <div className={`flex-1 p-3 sm:p-6 space-y-4 sm:space-y-6 scrollbar-hide ${messages.length === 0 ? 'overflow-hidden' : 'overflow-y-auto'}`}>
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center px-4">
